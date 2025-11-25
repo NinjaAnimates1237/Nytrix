@@ -1,4 +1,4 @@
-# EchoForge - Mini Discord Clone 🚀
+# EchoForge - 
 
 A full-stack real-time chat application with user authentication, friend system, channels, and direct messaging - built with Python Flask and React!
 
