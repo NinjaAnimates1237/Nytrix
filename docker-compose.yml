@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "6767:6767"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://echoforge:password@db:5432/echoforge
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - CORS_ORIGINS=http://localhost:6767,https://yourdomain.com
+    depends_on:
+      - db
+    volumes:
+      - ./:/app
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=echoforge
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=echoforge
+    volumes:
+      - postgres_data:/ var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  frontend:
+    build: ./client
+    ports:
+      - "6767:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
