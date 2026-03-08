@@ -1,0 +1,130 @@
+
+<body>
+	<div id="chat-container">
+		<h2>Simple Chat App</h2>
+		<div style="margin-bottom: 10px;">
+			<label for="server">Server:</label>
+			<select id="server" onchange="changeServer()"></select>
+		</div>
+		<div style="margin-bottom: 16px; display: flex; gap: 8px;">
+			<input type="text" id="new-server-name" placeholder="New server name" style="flex:2;" />
+			<button onclick="createServer()" style="flex:1;">Create Server</button>
+		</div>
+		<div style="margin-bottom: 16px; display: flex; gap: 8px;">
+			<input type="text" id="join-server-code" placeholder="Enter server code" style="flex:2;" />
+			<button onclick="joinServer()" style="flex:1;">Join Server</button>
+		</div>
+		<div id="server-code-info" style="margin-bottom: 10px; color: #1976d2; text-align:center;"></div>
+		<div id="messages"></div>
+		<div id="input-area">
+			<input type="text" id="user" placeholder="Your name" />
+			<input type="text" id="text" placeholder="Type a message..." />
+			<button onclick="sendMessage()">Send</button>
+		</div>
+	</div>
+	<script>
+		let currentServer = 'general';
+
+		async function fetchServers() {
+			const res = await fetch('http://127.0.0.1:5000/servers');
+			const servers = await res.json();
+			const serverSelect = document.getElementById('server');
+			serverSelect.innerHTML = '';
+			servers.forEach(server => {
+				const option = document.createElement('option');
+				option.value = server;
+				option.textContent = server.length === 6 ? `🔑 ${server}` : server.charAt(0).toUpperCase() + server.slice(1);
+				serverSelect.appendChild(option);
+			});
+			if (!servers.includes(currentServer)) {
+				currentServer = servers[0];
+			}
+			serverSelect.value = currentServer;
+		}
+
+		async function fetchMessages() {
+			const res = await fetch(`http://127.0.0.1:5000/messages?server=${encodeURIComponent(currentServer)}`);
+			const msgs = await res.json();
+			const messagesDiv = document.getElementById('messages');
+			messagesDiv.innerHTML = '';
+			msgs.forEach(msg => {
+				messagesDiv.innerHTML += `<div class=\"msg\"><span class=\"user\">${msg.user}:</span> ${msg.text}</div>`;
+			});
+			messagesDiv.scrollTop = messagesDiv.scrollHeight;
+		}
+
+		async function sendMessage() {
+			const user = document.getElementById('user').value.trim();
+			const text = document.getElementById('text').value.trim();
+			if (!user || !text) return;
+			await fetch('http://127.0.0.1:5000/messages', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ user, text, server: currentServer })
+			});
+			document.getElementById('text').value = '';
+			fetchMessages();
+		}
+
+		function changeServer() {
+			const serverSelect = document.getElementById('server');
+			currentServer = serverSelect.value;
+			document.getElementById('server-code-info').textContent = currentServer.length === 6 ? `Server code: ${currentServer}` : '';
+			fetchMessages();
+		}
+
+		async function createServer() {
+			const name = document.getElementById('new-server-name').value.trim();
+			if (!name) return alert('Enter a server name!');
+			const res = await fetch('http://127.0.0.1:5000/servers/create', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name })
+			});
+			const data = await res.json();
+			if (data.status === 'ok') {
+				await fetchServers();
+				currentServer = data.code;
+				document.getElementById('server').value = data.code;
+				document.getElementById('server-code-info').textContent = `Server created! Share this code: ${data.code}`;
+				fetchMessages();
+			} else {
+				alert(data.reason || 'Error creating server');
+			}
+		}
+
+		async function joinServer() {
+			const code = document.getElementById('join-server-code').value.trim().toUpperCase();
+			if (!code) return alert('Enter a server code!');
+			const res = await fetch('http://127.0.0.1:5000/servers/join', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code })
+			});
+			const data = await res.json();
+			if (data.status === 'ok') {
+				if (!Array.from(document.getElementById('server').options).some(opt => opt.value === code)) {
+					const option = document.createElement('option');
+					option.value = code;
+					option.textContent = `🔑 ${code}`;
+					document.getElementById('server').appendChild(option);
+				}
+				currentServer = code;
+				document.getElementById('server').value = code;
+				document.getElementById('server-code-info').textContent = `Joined server! Server code: ${code}`;
+				fetchMessages();
+			} else {
+				alert(data.reason || 'Server not found');
+			}
+		}
+
+		async function init() {
+			await fetchServers();
+			document.getElementById('server-code-info').textContent = '';
+			fetchMessages();
+			setInterval(fetchMessages, 1000);
+		}
+		init();
+	</script>
+</body>
+
